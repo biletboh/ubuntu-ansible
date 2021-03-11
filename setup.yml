@@ -1,0 +1,76 @@
+---
+- hosts: localhost
+  become: yes
+  vars:
+    sys_packages: ['wget', 'curl', 'unzip', 'nano', 'vim', 'git', 'ca-certificates', 'software-properties-common', 'python3-pip', 'python3-setuptools', 'python3-venv', 'docker-ce', 'postgresql', 'postgresql-contrib', 'nvm', 's3cmd', 'chromium-browser', 'steam',  'gimp', 'inkscape', 'password-gorilla', 'clementine', 'htop',]
+
+  tasks:
+    - name: Make sure we have a 'wheel' group
+      group:
+        name: wheel
+        state: present
+
+    - name: Make sure we have a 'docker' group
+      group:
+        name: docker
+        state: present
+
+    - name: Allow 'wheel' and 'docker' groups to have passwordless sudo
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: '^%wheel, ^%docker'
+        line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+        validate: '/usr/sbin/visudo -cf %s'
+
+    - name: Update apt
+      apt:
+        update_cache: yes
+        upgrade: full
+        autoremove: yes
+
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Add Vim repository
+      apt_repository:
+        repo: ppa:jonathonf/vim
+
+    - name: Update apt
+      apt:
+        update_cache: yes
+        upgrade: full
+        autoremove: yes
+
+    - name: Install required system packages
+      apt: name={{ sys_packages }} state=latest
+
+    - name: Install Docker module for Python
+      pip:
+        name:
+            - docker
+            - docker-compose
+        executable: pip3
+
+    - name: Add i386 architecture for Wine
+      shell: dpkg --add-architecture i386
+
+    - name: Add Wine GPG apt Key
+      apt_key:
+        url: https://dl.winehq.org/wine-builds/winehq.key
+        state: present
+
+    - name: Add Wine repository
+      apt_repository:
+        repo: deb https://dl.winehq.org/wine-builds/ubuntu/ focal main
+        state: present
+
+    - name: Install Wine
+      shell: apt install --install-recommends -y winehq-stable
