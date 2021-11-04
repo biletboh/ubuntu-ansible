@@ -2,7 +2,7 @@
 - hosts: localhost
   become: yes
   vars:
-    sys_packages: ['wget', 'curl', 'unzip', 'nano', 'vim', 'git', 'ca-certificates', 'software-properties-common', 'python3-pip', 'python3-setuptools', 'python3-venv', 'docker-ce', 'postgresql', 'postgresql-contrib', 'nvm', 's3cmd', 'chromium-browser', 'steam',  'gimp', 'inkscape', 'password-gorilla', 'clementine', 'htop',]
+    sys_packages: ['wget', 'curl', 'unzip', 'nano', 'vim', 'ca-certificates', 'software-properties-common', 'python3-pip', 'python3-setuptools', 'python3-venv', 'docker-ce', 'postgresql', 'postgresql-contrib', 's3cmd', 'chromium-browser', 'steam',  'gimp', 'inkscape', 'password-gorilla', 'clementine', 'htop',]
 
   tasks:
     - name: Make sure we have a 'wheel' group
@@ -74,3 +74,40 @@
 
     - name: Install Wine
       shell: apt install --install-recommends -y winehq-stable
+
+    - name: Create ~/.gitconfig
+      file:
+        state: touch
+        path: ~/.gitconfig
+
+    - name: List git config
+      git_config:
+        list_all: yes
+
+    - name: Add name setting to ~/.gitconfig
+      git_config:
+        name: user.name
+        scope: global
+        value: Bohdan
+
+    - name: Add email setting to ~/.gitconfig
+      git_config:
+        name: user.email
+        scope: global
+        value: biletskyboh@gmail.com
+
+    - name: Add editor setting to ~/.gitconfig
+      git_config:
+        name: core.editor
+        scope: global
+        value: vim
+
+    - name: Create folder for Vundle 
+      file:
+        state: directory
+        path: ~/.vim/bundle/Vundle.vim
+
+    - name: Dowload Vundle for vim
+      git:
+        repo: "https://github.com/gmarik/Vundle.vim.git"
+        dest: "~/.vim/bundle/Vundle.vim"

@@ -14,3 +14,9 @@ Set up localhost invetory in `/etc/ansible/hosts`:
 ```
 localhost              ansible_connection=local
 ```
+
+Run ansible playbook to update system:
+
+```
+ansible-playbook setup.yml -l localhost
+```
