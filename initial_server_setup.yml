@@ -1,0 +1,122 @@
+---
+- hosts: webservers
+  remote_user: root
+  vars:
+    create_user: ansible
+    copy_local_key: "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_rsa_new.pub') }}"
+    sys_packages: [ 'aptitude', 'wget', 'curl', 'nano', 'vim', 'git', 'ufw', 'apt-transport-https', 'ca-certificates', 'software-properties-common', 'python3-pip', 'unzip', 'python3-setuptools', 'docker-ce' ]
+      # main_repo: 'git@bitbucket.org:biboh/tyzhden_backend.git'
+
+  tasks:
+    - name: Make sure we have a 'wheel' group
+      group:
+        name: wheel
+        state: present
+
+    - name: Make sure we have a 'docker' group
+      group:
+        name: docker
+        state: present
+
+    - name: Allow 'wheel' and 'docker' groups to have passwordless sudo
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: '^%wheel, ^%docker'
+        line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+        validate: '/usr/sbin/visudo -cf %s'
+
+    - name: Create a new regular user with sudo privileges
+      user:
+        name: "{{ create_user }}"
+        state: present
+        groups: 'wheel, docker'
+        append: true
+        create_home: true
+        shell: /bin/bash
+
+    - name: Set authorized key for remote user
+      authorized_key:
+        user: "{{ create_user }}"
+        state: present
+        key: "{{ copy_local_key }}"
+
+    - name: Disable password authentication for root
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        state: present
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin prohibit-password'
+
+    - name: Create a directory for app project
+      file:
+        path: /var/www
+        owner: ansible
+        group: ansible
+        state: directory
+
+    - name: Create a directory for pip cache
+      file:
+        path: /tmp/cache
+        state: directory
+
+    - name: Allow SSH AgentForwarding
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        state: present
+        regexp: '^AllowAgentForwarding'
+        line: 'AllowAgentForwarding yes'
+
+    - name: Set vm.max_map_count to 262144 in sysctl
+      sysctl: name={{ item.key }} value={{ item.value }}
+      with_items:
+        - { key: "vm.max_map_count", value: "262144" }
+
+    - name: Update apt
+      apt:
+        update_cache: yes
+        upgrade: full
+        autoremove: yes
+
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu bionic stable
+        state: present
+
+    - name: Install required system packages
+      apt: name={{ sys_packages }} state=latest
+
+    - name: Install Docker module for Python
+      pip:
+        name:
+            - docker
+            - docker-compose
+        executable: pip3
+
+    - name: UFW - Allow SSH connections
+      ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: UFW - Allow HTTPS connections
+      ufw:
+        rule: allow
+        port: https
+
+    - name: UFW - Deny all other incoming traffic by default
+      ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+
+#     - name: Ensure main repo is up-to-date
+#       git:
+#         repo: '{{ main_repo }}'
+#         version: master
+#         dest: "/var/www/tyzhden"
+#         accept_hostkey: yes
